@@ -112,8 +112,8 @@ export default function () {
     res.json({
       totalSales,
       totalPaidSales: totalSales - unPaidSales,
-      totalRoyaltyPaid: totalMarketFee[0].totalMarketFee ?? 0,
-      totalPotentialRoyalty: (totalPrice[0].totalPrice ?? 0) * 0.01243243243,
+      totalRoyaltyPaid: totalMarketFee[0]?.totalMarketFee ?? 0,
+      totalPotentialRoyalty: (totalPrice[0]?.totalPrice ?? 0) * 0.01243243243,
     });
   });
 

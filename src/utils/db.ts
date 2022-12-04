@@ -11,3 +11,9 @@ export async function collection() {
   }
   return client.db('iroyalty').collection('sales');
 }
+
+export async function teardown() {
+  await client.close();
+  connected = false;
+  return;
+}

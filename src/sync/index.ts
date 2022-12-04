@@ -14,7 +14,6 @@ export default scan;
 
 async function scan() {
   for (const [collectionSymbol, updateAuthority] of COLLECTIONS.entries()) {
-    debug('scanning %s', collectionSymbol);
     await scanCollection(collectionSymbol, updateAuthority);
   }
 }
@@ -24,9 +23,12 @@ async function scanCollection(
   updateAuthority: string
 ) {
   const c = await db.collection();
-  const noOfSales = await c.estimatedDocumentCount();
+  const noOfSales = await c.count({
+    collection_symbol: collectionSymbol,
+  });
+  debug('%s: scanning, no of sales(%d)', collectionSymbol, noOfSales);
 
-  if (noOfSales > LIMIT) {
+  if (!noOfSales || noOfSales > LIMIT) {
     const oldestSale = await c.findOne(
       {
         collection_symbol: collectionSymbol,
@@ -38,7 +40,11 @@ async function scanCollection(
       }
     );
 
-    debug('querying sales before %s', oldestSale ? oldestSale.time : 'now');
+    debug(
+      '%s: querying sales before %s',
+      collectionSymbol,
+      oldestSale ? oldestSale.time : 'now'
+    );
 
     const sales: Sale[] = await (
       await fetch(
@@ -58,21 +64,23 @@ async function scanCollection(
       )
     ).json();
 
-    const bulkWriteOpts = sales.map((sale) => ({
-      updateMany: {
-        filter: { signature: sale.signature },
-        update: {
-          $set: { ...sale, collection_symbol: collectionSymbol },
+    if (sales.length) {
+      const bulkWriteOpts = sales.map((sale) => ({
+        updateMany: {
+          filter: { signature: sale.signature },
+          update: {
+            $set: { ...sale, collection_symbol: collectionSymbol },
+          },
+          upsert: true,
         },
-        upsert: true,
-      },
-    }));
+      }));
 
-    await c.bulkWrite(bulkWriteOpts);
+      await c.bulkWrite(bulkWriteOpts);
 
-    if (sales.length === LIMIT) {
-      await sleep(1000);
-      await scanCollection(collectionSymbol, updateAuthority);
+      if (sales.length === LIMIT) {
+        await sleep(1000);
+        await scanCollection(collectionSymbol, updateAuthority);
+      }
     }
   }
 
