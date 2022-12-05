@@ -8,7 +8,7 @@ import { sleep } from '../utils/promise';
 import * as db from '../utils/db';
 
 const debug = Debug('backend:stats');
-const LIMIT = 100;
+const LIMIT = 10;
 
 export default sync;
 
