@@ -9,5 +9,5 @@ const debug = Debug('backend:cron');
 // every 10 minutes
 cron.schedule('*/10 * * * *', async function () {
   debug('running at', new Date());
-  sync().finally(db.teardown);
+  sync(true).finally(db.teardown);
 });

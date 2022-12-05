@@ -10,35 +10,40 @@ import * as db from '../utils/db';
 const debug = Debug('backend:stats');
 const LIMIT = 100;
 
-export default scan;
+export default sync;
 
-async function scan() {
+async function sync(fromNow?: boolean) {
   for (const [collectionSymbol, updateAuthority] of COLLECTIONS.entries()) {
-    await scanCollection(collectionSymbol, updateAuthority);
+    await syncCollection(collectionSymbol, updateAuthority, fromNow);
   }
 }
 
-async function scanCollection(
+async function syncCollection(
   collectionSymbol: string,
-  updateAuthority: string
+  updateAuthority: string,
+  fromNow?: boolean
 ) {
   const c = await db.collection();
-  const noOfSales = await c.count({
-    collection_symbol: collectionSymbol,
-  });
-  debug('%s: scanning, no of sales(%d)', collectionSymbol, noOfSales);
+  const noOfSales = fromNow
+    ? 0
+    : await c.count({
+        collection_symbol: collectionSymbol,
+      });
+  debug('%s: syncing, no of sales(%d)', collectionSymbol, noOfSales);
 
   if (!noOfSales || noOfSales > LIMIT) {
-    const oldestSale = await c.findOne(
-      {
-        collection_symbol: collectionSymbol,
-      },
-      {
-        sort: {
-          time: 1,
-        },
-      }
-    );
+    const oldestSale = fromNow
+      ? null
+      : await c.findOne(
+          {
+            collection_symbol: collectionSymbol,
+          },
+          {
+            sort: {
+              time: 1,
+            },
+          }
+        );
 
     debug(
       '%s: querying sales before %s',
@@ -79,7 +84,7 @@ async function scanCollection(
 
       if (sales.length === LIMIT) {
         await sleep(1000);
-        await scanCollection(collectionSymbol, updateAuthority);
+        await syncCollection(collectionSymbol, updateAuthority);
       }
     }
   }
