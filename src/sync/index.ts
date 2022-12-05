@@ -14,7 +14,11 @@ export default sync;
 
 async function sync(fromNow?: boolean) {
   for (const [collectionSymbol, updateAuthority] of COLLECTIONS.entries()) {
-    await syncCollection(collectionSymbol, updateAuthority, fromNow);
+    try {
+      await syncCollection(collectionSymbol, updateAuthority, fromNow);
+    } catch (e) {
+      console.warn(e);
+    }
   }
 }
 
