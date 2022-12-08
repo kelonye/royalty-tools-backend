@@ -23,6 +23,8 @@ export default function () {
       query.count as string,
       MAX_PAGE_COUNT
     );
+    const timeFrom = query.from as string;
+    const timeTo = query.to as string;
 
     const count = countArg > MAX_PAGE_COUNT ? MAX_PAGE_COUNT : countArg;
     const frm = pageArg * count;
@@ -31,6 +33,14 @@ export default function () {
       $or: [
         {
           collection_symbol: collectionSymbol,
+          ...(!(timeFrom && timeTo)
+            ? null
+            : {
+                time: {
+                  $gte: timeFrom,
+                  $lte: timeTo,
+                },
+              }),
         },
       ],
     };
@@ -50,11 +60,22 @@ export default function () {
   app.get('/chart/:collectionSymbol', async (req, res) => {
     const c = await db.collection();
 
+    const timeFrom = req.query.from as string;
+    const timeTo = req.query.to as string;
+
     const markets = await c
       .aggregate([
         {
           $match: {
             collection_symbol: req.params.collectionSymbol,
+            ...(!(timeFrom && timeTo)
+              ? null
+              : {
+                  time: {
+                    $gte: timeFrom,
+                    $lte: timeTo,
+                  },
+                }),
           },
         },
         {
@@ -81,8 +102,20 @@ export default function () {
 
   app.get('/summary/:collectionSymbol', async (req, res) => {
     const c = await db.collection();
+
+    const timeFrom = req.query.from as string;
+    const timeTo = req.query.to as string;
+
     const query = {
       collection_symbol: req.params.collectionSymbol,
+      ...(!(timeFrom && timeTo)
+        ? null
+        : {
+            time: {
+              $gte: timeFrom,
+              $lte: timeTo,
+            },
+          }),
     };
     const [totalSales, unPaidSales, totalMarketFee, totalPrice] =
       await Promise.all([
@@ -105,9 +138,6 @@ export default function () {
           ])
           .toArray(),
       ]);
-
-    let totalRoyaltyPaid = 0;
-    let totalPotentialRoyalty = 0;
 
     res.json({
       totalSales,

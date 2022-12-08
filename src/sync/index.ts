@@ -55,22 +55,22 @@ async function syncCollection(
       oldestSale ? oldestSale.time : 'now'
     );
 
+    const url =
+      'https://api.coralcube.cc/0dec5037-f67d-4da8-9eb6-97e2a09ffe9a/inspector/getMintActivities?' +
+      qs.stringify({
+        update_authority: updateAuthority,
+        collection_symbol: collectionSymbol,
+        limit: LIMIT,
+        ...(!oldestSale ? null : { time: oldestSale.time }),
+      });
+
     const sales: Sale[] = await (
-      await fetch(
-        'https://api.coralcube.cc/0dec5037-f67d-4da8-9eb6-97e2a09ffe9a/inspector/getMintActivities?' +
-          qs.stringify({
-            update_authority: updateAuthority,
-            collection_symbol: collectionSymbol,
-            limit: LIMIT,
-            ...(!oldestSale ? null : { time: oldestSale.time }),
-          }),
-        {
-          headers: {
-            'user-agent':
-              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36',
-          },
-        }
-      )
+      await fetch(url, {
+        headers: {
+          'user-agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36',
+        },
+      })
     ).json();
 
     if (sales.length) {
