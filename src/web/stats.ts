@@ -14,35 +14,21 @@ export default function () {
 
   app.get('/sales/:collectionSymbol', async (req, res) => {
     const {
-      query,
       params: { collectionSymbol },
     } = req;
 
-    const pageArg = parseNumberQueryParam(query.page as string, 0);
+    const pageArg = parseNumberQueryParam(req.query.page as string, 0);
     const countArg = parseNumberQueryParam(
-      query.count as string,
+      req.query.count as string,
       MAX_PAGE_COUNT
     );
-    const timeFrom = query.from as string;
-    const timeTo = query.to as string;
-
     const count = countArg > MAX_PAGE_COUNT ? MAX_PAGE_COUNT : countArg;
     const frm = pageArg * count;
 
+    const query = getQueryParams(collectionSymbol, req.query);
+
     const dbQuery: Record<string, any> = {
-      $or: [
-        {
-          collection_symbol: collectionSymbol,
-          ...(!(timeFrom && timeTo)
-            ? null
-            : {
-                time: {
-                  $gte: timeFrom,
-                  $lte: timeTo,
-                },
-              }),
-        },
-      ],
+      $or: [query],
     };
 
     const c = await db.collection();
@@ -60,23 +46,15 @@ export default function () {
   app.get('/chart/:collectionSymbol', async (req, res) => {
     const c = await db.collection();
 
-    const timeFrom = req.query.from as string;
-    const timeTo = req.query.to as string;
+    const {
+      params: { collectionSymbol },
+    } = req;
+    const query = getQueryParams(collectionSymbol, req.query);
 
     const markets = await c
       .aggregate([
         {
-          $match: {
-            collection_symbol: req.params.collectionSymbol,
-            ...(!(timeFrom && timeTo)
-              ? null
-              : {
-                  time: {
-                    $gte: timeFrom,
-                    $lte: timeTo,
-                  },
-                }),
-          },
+          $match: query,
         },
         {
           $group: {
@@ -103,21 +81,12 @@ export default function () {
   app.get('/summary/:collectionSymbol', async (req, res) => {
     const c = await db.collection();
 
-    const timeFrom = req.query.from as string;
-    const timeTo = req.query.to as string;
+    const {
+      params: { collectionSymbol },
+    } = req;
+    const query = getQueryParams(collectionSymbol, req.query);
 
-    const query = {
-      collection_symbol: req.params.collectionSymbol,
-      ...(!(timeFrom && timeTo)
-        ? null
-        : {
-            time: {
-              $gte: timeFrom,
-              $lte: timeTo,
-            },
-          }),
-    };
-    const [totalSales, unPaidSales, totalMarketFee, totalPrice] =
+    const [totalSales, totalUnPaidSales, totalMarketFee, totalPrice] =
       await Promise.all([
         c.count(query),
         c.count({ ...query, royalty_fee: 0 }),
@@ -141,7 +110,7 @@ export default function () {
 
     res.json({
       totalSales,
-      totalPaidSales: totalSales - unPaidSales,
+      totalPaidSales: totalSales - totalUnPaidSales,
       totalRoyaltyPaid: totalMarketFee[0]?.totalMarketFee ?? 0,
       totalPotentialRoyalty: (totalPrice[0]?.totalPrice ?? 0) * 0.01243243243,
     });
@@ -155,4 +124,33 @@ function parseNumberQueryParam(s: string, defaultVal: number): number {
   const val = parseInt(s);
   if (isNaN(val)) return defaultVal;
   return val;
+}
+
+function getQueryParams(collectionSymbol: string, query: any) {
+  const timeFrom = query.from as string;
+  const timeTo = query.to as string;
+  const paidSales = (query.paid as string) === 'true';
+
+  return {
+    collection_symbol: collectionSymbol,
+    ...(timeFrom && timeTo
+      ? {
+          time: {
+            $gte: timeFrom,
+            $lte: timeTo,
+          },
+        }
+      : timeFrom
+      ? { time: { $gte: timeFrom } }
+      : timeTo
+      ? { time: { $lte: timeTo } }
+      : null),
+    ...(paidSales
+      ? {
+          royalty_fee: {
+            $gt: 0,
+          },
+        }
+      : null),
+  };
 }
